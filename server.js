@@ -1,86 +1,66 @@
-const express = require("express")
-const cors = require("cors")
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const http = require("http");
+const { Server } = require("socket.io");
 
-const app = express()
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+cors: { origin: "*" }
+});
 
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(bodyParser.json());
 
 let systemState = {
-
-solar:0,
-battery:50,
-grid:true,
-prediction:0,
-load:0,
-
-rooms:Array(30).fill().map((_,i)=>({
-
-id:i+1,
-irms:0,
-pf:1,
-thd:0,
-device:"Normal",
-supply:true
-
+solar: 0,
+battery: 50,
+grid: 1,
+rooms: Array(30).fill().map((_, i) => ({
+id: i + 1,
+irms: 0,
+pf: 1,
+thd: 0,
+supply: true
 }))
+};
+
+app.post("/update", (req, res) => {
+
+const data = req.body;
+
+if (data.room) {
+
+
+let r = data.room - 1;
+
+systemState.rooms[r].irms = data.irms;
+systemState.rooms[r].pf = data.pf;
+systemState.rooms[r].thd = data.thd;
+systemState.rooms[r].supply = data.supply;
+
+// 🔥 send update instantly to dashboard
+io.emit("roomUpdate", systemState);
+
 
 }
 
-// ESP32 UPDATE
-app.post("/update",(req,res)=>{
+res.json({ status: "ok" });
+});
 
-const data=req.body
+app.get("/status", (req, res) => {
+res.json(systemState);
+});
 
-// SYSTEM DATA
-if(data.solar!==undefined)
-systemState.solar=data.solar
+io.on("connection", (socket) => {
+console.log("Dashboard connected");
 
-if(data.battery!==undefined)
-systemState.battery=data.battery
+socket.emit("roomUpdate", systemState);
+});
 
-if(data.grid!==undefined)
-systemState.grid=data.grid
+const PORT = process.env.PORT || 3000;
 
-if(data.prediction!==undefined)
-systemState.prediction=data.prediction
-
-if(data.load!==undefined)
-systemState.load=data.load
-
-
-// ROOM DATA
-if(data.rooms){
-
-data.rooms.forEach(room=>{
-
-let r=room.id-1
-
-systemState.rooms[r].irms=room.irms
-systemState.rooms[r].pf=room.pf
-systemState.rooms[r].thd=room.thd
-systemState.rooms[r].device=room.device
-systemState.rooms[r].supply=room.supply
-
-})
-
-}
-
-res.json({status:"updated"})
-
-})
-
-// DASHBOARD REQUEST
-app.get("/status",(req,res)=>{
-
-res.json(systemState)
-
-})
-
-const PORT=process.env.PORT||3000
-
-app.listen(PORT,()=>{
-
-console.log("Smart Hostel API running")
-
-})
+server.listen(PORT, () => {
+console.log("Server running");
+});
