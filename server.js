@@ -24,6 +24,10 @@ const LOAD_HISTORY   = 20;   // rolling window for prediction
 
 // ── SYSTEM STATE ─────────────────────────────────────────────
 // Single source of truth — broadcast to all dashboards on change
+
+// Store latest admin control commands _________________________
+let adminCommands = {};
+
 const systemState = {
   solar:      3.0,
   battery:    50,
@@ -120,11 +124,16 @@ app.post("/admin/room/:id", (req, res) => {
   }
 
   systemState.rooms[id - 1].supply = supply;
+  adminCommands[id] = supply;
   systemState.hostelLoad = recalcLoad();
 
   io.emit("roomUpdate", systemState);
   console.log(`[ADMIN] Room ${id} → ${supply ? "RESTORED" : "CUT"}`);
   return res.json({ status: "ok", room: id, supply });
+});
+
+app.get("/commands", (req, res) => {
+  res.json(adminCommands);
 });
 
 // POST /admin/grid — toggle grid availability
@@ -155,3 +164,4 @@ const PORT = 5000;
 server.listen(PORT,  "0.0.0.0",() => {
   console.log(`[SERVER] SHMC Backend running on port ${PORT}`);
 });
+
