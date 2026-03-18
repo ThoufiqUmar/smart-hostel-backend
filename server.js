@@ -132,8 +132,16 @@ app.post("/admin/room/:id", (req, res) => {
   return res.json({ status: "ok", room: id, supply });
 });
 
+// COMMANDS from Dashboard
+
 app.get("/commands", (req, res) => {
-  res.json(adminCommands);
+  const commands = {};
+
+  systemState.rooms.forEach((room) => {
+    commands[room.id] = room.supply;
+  });
+
+  res.json(commands);
 });
 
 // POST /admin/grid — toggle grid availability
